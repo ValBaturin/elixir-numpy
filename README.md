@@ -9,3 +9,6 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 $elixir --version
 Elixir 1.6.1 (compiled with OTP 20)
 ```
+### Compilation
+`gcc-7 -undefined dynamic_lookup -dynamiclib niftest.c -o niftest.so -I /usr/local/Cellar/erlang/20.2.4/lib/erlang/usr/include`
+

@@ -1,8 +1,7 @@
 defmodule Niftest do
  @on_load :init
   def init() do
-    :erlang.load_nif("./niftest", 0)
-    :ok
+    :ok = :erlang.load_nif("./niftest", 0)
   end
 
   def hello() do
