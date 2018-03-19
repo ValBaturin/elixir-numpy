@@ -44,4 +44,7 @@ defmodule Numpy do
         "NIF library not loaded"
     end
 
+    def mult(_, _) do
+        "NIF library not loaded"
+    end
 end

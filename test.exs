@@ -191,7 +191,7 @@ defmodule Test do
         scaler = 10.0
         result = make_list scale(scaler, get_col(ncol, make_matrix(non_sq_matrix)))
         if result != [10.0, 50.0] do
-            IO.puts("\nERROR col")
+            IO.puts("\nERROR col scale")
             IO.puts("input:")
             IO.inspect scaler
             IO.inspect ncol
@@ -202,7 +202,7 @@ defmodule Test do
         ncol = 1
         result = make_list scale(scaler, get_col(ncol, make_matrix(non_sq_matrix)))
         if result != [20.0, 30.0] do
-            IO.puts("\nERROR col")
+            IO.puts("\nERROR col scale")
             IO.puts("input:")
             IO.inspect scaler
             IO.inspect ncol
@@ -213,7 +213,7 @@ defmodule Test do
         ncol = 2
         result = make_list scale(scaler, get_col(ncol, make_matrix(non_sq_matrix)))
         if result != [30.0, 25.0] do
-            IO.puts("\nERROR col")
+            IO.puts("\nERROR col scale")
             IO.puts("input:")
             IO.inspect scaler
             IO.inspect ncol
@@ -230,7 +230,7 @@ defmodule Test do
         scaler = -10.0
         result = make_list scale(scaler, get_diag(d, make_matrix(non_sq_matrix)))
         if result != [-10.0, -30.0] do
-            IO.puts("\nGET DIAG")
+            IO.puts("\n!ERROR diag")
             IO.puts("input:")
             IO.inspect d
             IO.inspect non_sq_matrix
@@ -240,6 +240,7 @@ defmodule Test do
         d = -1
         result = make_list scale(scaler, get_diag(d, make_matrix(non_sq_matrix)))
         if result != [-30.0, -30.0] do
+            IO.puts("\n!ERROR diag")
             IO.puts("input:")
             IO.inspect d
             IO.inspect non_sq_matrix
@@ -247,6 +248,54 @@ defmodule Test do
             IO.inspect result
         end
         IO.puts("✓ diag scale")
+    end
+
+    def mult do
+        matrix = [[2.0, 5.0, 3.0], [-1.0, 5.0, 9.0], [10.0, 3.0, 4.0]]
+        matrix2 = [[1.0, 7.0, 7.0], [-1.0, -5.0, -9.0], [1.0, 1.0, 15.0]]
+        vector = [2.0, 2.0, 2.0]
+        m = make_matrix(matrix)
+        v = make_vector(vector)
+        col = get_col(1, make_matrix(matrix2))
+        row = get_row(2, make_matrix(matrix2))
+        diag = get_diag(1, make_matrix(matrix2))
+        result = make_list mult(m, v)
+        if result != [20.0, 26.0, 34.0] do
+            IO.puts("\n!ERROR mult")
+            IO.puts("input:")
+            IO.inspect matrix
+            IO.inspect vector
+            IO.puts("output:")
+            IO.inspect result
+        end
+        result = make_list mult(m, col)
+        if result != [-8.0, -23.0, 59.0] do
+            IO.puts("\n!ERROR mult")
+            IO.puts("input:")
+            IO.inspect matrix
+            IO.inspect make_list col
+            IO.puts("output:")
+            IO.inspect result
+        end
+        result = make_list mult(m, row)
+        if result != [52.0, 139.0, 73.0] do
+            IO.puts("\n!ERROR mult")
+            IO.puts("input:")
+            IO.inspect matrix
+            IO.inspect make_list row
+            IO.puts("output:")
+            IO.inspect result
+        end
+        result = make_list mult(m, diag)
+        if result != [22.0, 109.0, 55.0] do
+            IO.puts("\n!ERROR mult")
+            IO.puts("input:")
+            IO.inspect matrix
+            IO.inspect make_list diag
+            IO.puts("output:")
+            IO.inspect result
+        end
+        IO.puts("✓ multiplication")
     end
 
     def test() do
@@ -262,7 +311,9 @@ defmodule Test do
         rowscale()
         colscale()
         diagscale()
+        mult()
         IO.puts("DONE")
     end
 end
+
 Test.test()

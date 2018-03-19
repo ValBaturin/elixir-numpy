@@ -96,7 +96,6 @@ ERL_NIF_TERM make_matrix(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
             m->value[inx(i, j, m->cols)] = inner_item;
         }
     }
-    fflush(stdout);
     ERL_NIF_TERM t = enif_make_resource(env, m);
     return t;
 }
@@ -367,6 +366,82 @@ ERL_NIF_TERM get_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     return argv[1];
 }
 
+ERL_NIF_TERM vmult(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    enif_get_resource(env, argv[0], matrix_resource, (void **)&m);
+
+    struct vector *v;
+    enif_get_resource(env, argv[1], vector_resource, (void **)&v);
+
+    if (v->size != m->cols) {
+        return enif_make_badarg(env);
+    }
+
+    struct vector *vector_result;
+    vector_result = enif_alloc_resource(vector_resource, sizeof(struct vector));
+    vector_result->size = m->rows;
+    vector_result->value = enif_alloc(m->rows * sizeof(double));
+
+    for (unsigned int i = 0; i < m->rows; ++i) {
+        double value = 0.0;
+        for (unsigned int j = 0; j < m->cols; ++j) {
+            unsigned int index = inx(i, j, m->cols);
+            value += m->value[index] * v->value[j];
+        }
+        vector_result->value[i] = value;
+    }
+    ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
+    return result_term;
+}
+
+ERL_NIF_TERM mvmult(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    enif_get_resource(env, argv[0], matrix_resource, (void **)&m);
+
+    struct matrix *v;
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&v);
+    unsigned int steps;
+    if (v->type == ROW) {
+        steps = v->cols;
+    } else if (v->type == COL) {
+        steps = v->rows;
+    } else if (v->type == DIAG) {
+        steps = min(v->rows, v->cols);
+    } else {
+        return enif_make_badarg(env);
+    }
+    if (steps != m->cols) {
+        return enif_make_badarg(env);
+    }
+    struct vector *vector_result;
+    vector_result = enif_alloc_resource(vector_resource, sizeof(struct vector));
+    vector_result->size = steps;
+    vector_result->value = enif_alloc(m->rows * sizeof(double));
+
+    for (int i = 0; i < m->rows; ++i) {
+        double value = 0.0;
+        for (int j = 0; j < m->cols; ++j) {
+            unsigned int index = inx(i, j, m->cols);
+            unsigned int vindex = v->offset + j * v->step;
+            value += m->value[index] * v->value[vindex];
+        }
+        vector_result->value[i] = value;
+    }
+    ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
+    return result_term;
+}
+
+ERL_NIF_TERM mult(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct vector *v;
+    if (enif_get_resource(env, argv[1], vector_resource, (void **)&v)) {
+        return vmult(env, argc, argv);
+    }
+    struct matrix *m;
+    if (enif_get_resource(env, argv[1], matrix_resource, (void **)&m) && (m->type != MATRIX)) {
+        return mvmult(env, argc, argv);
+    }
+    return enif_make_badarg(env);
+}
 
 static ErlNifFunc nif_funcs[] = {
     {"vsum", 2, vsum},
@@ -378,7 +453,8 @@ static ErlNifFunc nif_funcs[] = {
     {"make_matrix", 1, make_matrix},
     {"get_col", 2, get_col},
     {"get_row", 2, get_row},
-    {"get_diag", 2, get_diag}
+    {"get_diag", 2, get_diag},
+    {"mult", 2, mult}
 };
 
 ERL_NIF_INIT(Elixir.Numpy, nif_funcs, &on_load, NULL, NULL, NULL);
