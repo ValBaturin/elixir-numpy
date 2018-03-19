@@ -119,32 +119,21 @@ ERL_NIF_TERM make_list_from_matrix_row_col_diag(ErlNifEnv* env, int argc, const 
     struct matrix *m;
     enif_get_resource(env, argv[0], matrix_resource, (void **)&m);
     ERL_NIF_TERM *array;
-    ERL_NIF_TERM result;
+    unsigned int steps;
     if (m->type == ROW) {
-        array = enif_alloc(m->cols * sizeof(ERL_NIF_TERM));
-        for (int i = 0; i < m->cols; ++i) {
-            int index = m->offset + i;
-            array[i] = enif_make_double(env, m->value[index]);
-        }
-    	result = enif_make_list_from_array(env, array, m->cols);
+        steps = m->cols;
     } else if (m->type == COL) {
-        array = enif_alloc(m->rows * sizeof(ERL_NIF_TERM));
-        for (int i = 0; i < m->rows; ++i) {
-            int index = m->offset + i * m->step;
-            array[i] = enif_make_double(env, m->value[index]);
-        }
-    	result = enif_make_list_from_array(env, array, m->rows);
+        steps = m->rows;
     } else if (m->type == DIAG) {
-        unsigned int steps = min(m->rows, m->cols);
-        array = enif_alloc(steps * sizeof(ERL_NIF_TERM));
-        for (int i = 0; i < steps; ++i) {
-            int index = m->offset + i * m->step;
-            array[i] = enif_make_double(env, m->value[index]);
-        }
-    	result = enif_make_list_from_array(env, array, steps);
-    } else {
-        return enif_make_badarg(env);
-	}
+        steps = min(m->rows, m->cols);
+    }
+    array = enif_alloc(steps * sizeof(ERL_NIF_TERM));
+    for (int i = 0; i < steps; ++i) {
+        int index = m->offset + i * m->step;
+        array[i] = enif_make_double(env, m->value[index]);
+    }
+    ERL_NIF_TERM result;
+    result = enif_make_list_from_array(env, array, steps);
 	enif_free(array);
     return result;
 }
@@ -182,24 +171,16 @@ ERL_NIF_TERM make_deep_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 }
 
 ERL_NIF_TERM vsum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    unsigned size;
-    if (!enif_get_list_length(env, argv[0], &size)) {
-        return enif_make_badarg(env);
-    }
-    unsigned size_1;
-    if (!enif_get_list_length(env, argv[1], &size_1)) {
-        return enif_make_badarg(env);
-    }
-    if (size != size_1) {
-        return enif_make_badarg(env);
-    }
     struct vector *v_0;
     struct vector *v_1;
-    ERL_NIF_TERM v_term_0 = make_vector(env, 1, &argv[0]);
-    ERL_NIF_TERM v_term_1 = make_vector(env, 1, &argv[1]);
-    enif_get_resource(env, v_term_0, vector_resource, (void **)&v_0);
-    enif_get_resource(env, v_term_1, vector_resource, (void **)&v_1);
+    enif_get_resource(env, argv[0], vector_resource, (void **)&v_0);
+    enif_get_resource(env, argv[1], vector_resource, (void **)&v_1);
 
+    if (v_0->size != v_1->size) {
+        return enif_make_badarg(env);
+    }
+
+    unsigned int size = v_0->size;
     struct vector *vector_result;
     vector_result = enif_alloc_resource(vector_resource, sizeof(struct vector));
     vector_result->size = size;
@@ -209,16 +190,14 @@ ERL_NIF_TERM vsum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
         vector_result->value[i] = v_0->value[i] + v_1->value[i];
     }
     ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
-    return make_list(env, 1, &result_term);
+    return result_term;
 }
 
 ERL_NIF_TERM msum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m_0;
     struct matrix *m_1;
-    ERL_NIF_TERM v_term_0 = make_matrix(env, 1, &argv[0]);
-    ERL_NIF_TERM v_term_1 = make_matrix(env, 1, &argv[1]);
-    enif_get_resource(env, v_term_0, matrix_resource, (void **)&m_0);
-    enif_get_resource(env, v_term_1, matrix_resource, (void **)&m_1);
+    enif_get_resource(env, argv[0], matrix_resource, (void **)&m_0);
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m_1);
 
     struct matrix *matrix_result;
     matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
@@ -237,18 +216,13 @@ ERL_NIF_TERM msum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     }
 
     ERL_NIF_TERM result_term = enif_make_resource(env, matrix_result);
-    return make_deep_list(env, 1, &result_term);
+    return result_term;
 }
 
 
 ERL_NIF_TERM vscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    unsigned size;
-    if (!enif_get_list_length(env, argv[1], &size)) {
-        return enif_make_badarg(env);
-    }
     struct vector *v;
-    ERL_NIF_TERM v_term = make_vector(env, 1, &argv[1]);
-    enif_get_resource(env, v_term, vector_resource, (void **)&v);
+    enif_get_resource(env, argv[1], vector_resource, (void **)&v);
 
     double scaler;
     if (!enif_get_double(env, argv[0], &scaler)) {
@@ -257,10 +231,10 @@ ERL_NIF_TERM vscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
     struct vector *vector_result;
     vector_result = enif_alloc_resource(vector_resource, sizeof(struct vector));
-    vector_result->size = size;
-    vector_result->value = enif_alloc(size * sizeof(double));
+    vector_result->size = v->size;
+    vector_result->value = enif_alloc(v->size * sizeof(double));
 
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < v->size; ++i) {
         vector_result->value[i] = scaler * v->value[i];
     }
     ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
@@ -269,8 +243,7 @@ ERL_NIF_TERM vscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
 ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m;
-    ERL_NIF_TERM v_term = make_matrix(env, 1, &argv[1]);
-    enif_get_resource(env, v_term, matrix_resource, (void **)&m);
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m);
 
     double scaler;
     if (!enif_get_double(env, argv[0], &scaler)) {
@@ -294,9 +267,52 @@ ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     }
 
     ERL_NIF_TERM result_term = enif_make_resource(env, matrix_result);
-    return make_deep_list(env, 1, &result_term);
+    return result_term;
 }
 
+ERL_NIF_TERM mvscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m);
+
+    double scaler;
+    if (!enif_get_double(env, argv[0], &scaler)) {
+        return enif_make_badarg(env);
+    }
+
+    struct matrix *matrix_result;
+    matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
+    matrix_result->rows = m->rows;
+    matrix_result->cols = m->cols;
+    matrix_result->offset = 0;
+    matrix_result->step = 1;
+    matrix_result->type = MATRIX;
+    matrix_result->value = enif_alloc(matrix_result->cols * matrix_result->rows * sizeof(double));
+
+    for (int i = 0; i < matrix_result->rows; ++i) {
+        for (int j = 0; j < matrix_result->cols; ++j) {
+            unsigned int index = inx(i, j, matrix_result->cols);
+            matrix_result->value[index] = scaler * m->value[index];
+        }
+    }
+
+    ERL_NIF_TERM result_term = enif_make_resource(env, matrix_result);
+    return result_term;
+}
+
+ERL_NIF_TERM scale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct vector *v;
+    if (enif_get_resource(env, argv[1], vector_resource, (void **)&v)) {
+        return vscale(env, argc, argv);
+    }
+    struct matrix *m;
+    if (enif_get_resource(env, argv[1], matrix_resource, (void **)&m)) {
+        if (m->type == MATRIX) {
+            return mscale(env, argc, argv);
+        } else {
+            return mvscale(env, argc, argv);
+        }
+    }
+}
 
 ERL_NIF_TERM get_col(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m;
@@ -315,31 +331,31 @@ ERL_NIF_TERM get_col(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
 ERL_NIF_TERM get_row(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m;
-    ERL_NIF_TERM term = make_matrix(env, 1, &argv[1]);
-    enif_get_resource(env, term, matrix_resource, (void **)&m);
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m);
 
     int row;
     if (!enif_get_int(env, argv[0], &row)) {
         return enif_make_badarg(env);
     }
     m->type = ROW;
-    m->offset = row;
-    m->step = m->cols;
-    return term;
+    m->offset = row * m->cols;
+    m->step = 1;
+    return argv[1];
 }
 
 
 ERL_NIF_TERM get_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m;
-    ERL_NIF_TERM term = make_matrix(env, 1, &argv[1]);
-    enif_get_resource(env, term, matrix_resource, (void **)&m);
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m);
 
     int diag;
     if (!enif_get_int(env, argv[0], &diag)) {
         return enif_make_badarg(env);
     }
+
     m->type = DIAG;
     if (diag == 1) {
+        m->offset = 0;
         m->step = m->cols + 1;
     } else if (diag == -1) {
         m->offset = m->cols - 1;
@@ -347,7 +363,7 @@ ERL_NIF_TERM get_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     } else {
         return enif_make_badarg(env);
     }
-    return term;
+    return argv[1];
 }
 
 
