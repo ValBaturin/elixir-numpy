@@ -23,9 +23,22 @@ defmodule Test do
         IO.inspect result
     end
 
+    def matrixscale do
+        non_sq_matrix = [[1.0, 2.0, 3.0], [5.0, 3.0, 2.5]]
+        scaler = 15.0
+        result = mscale scaler, non_sq_matrix
+        IO.puts("\nMATRIX SUM")
+        IO.puts("input:")
+        IO.inspect non_sq_matrix
+        IO.inspect scaler
+        IO.puts("output")
+        IO.inspect result
+    end
+
     def test() do
         deepcopy()
         matrixsum()
+        matrixscale()
     end
 end
 Test.test()

@@ -1,8 +1,8 @@
 #include "erl_nif.h"
 #include "stdio.h"
 
-unsigned int inx(unsigned int row, unsigned int col, unsigned int rows) {
-    return rows * row + col;
+unsigned int inx(unsigned int row, unsigned int col, unsigned int col_size) {
+    return col_size * row + col;
 }
 
 struct vector {
@@ -156,7 +156,7 @@ ERL_NIF_TERM msum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     enif_get_resource(env, v_term_1, matrix_resource, (void **)&m_1);
 
     struct matrix *matrix_result;
-    matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct vector));
+    matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
     matrix_result->rows = m_0->rows;
     matrix_result->cols = m_0->cols;
     matrix_result->offset = 0;
@@ -201,11 +201,40 @@ ERL_NIF_TERM vscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     return make_list(env, 1, &result_term);
 }
 
+ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    ERL_NIF_TERM v_term = make_matrix(env, 1, &argv[1]);
+    enif_get_resource(env, v_term, matrix_resource, (void **)&m);
+
+    double scaler;
+    if (!enif_get_double(env, argv[0], &scaler)) {
+        return enif_make_badarg(env);
+    }
+
+    struct matrix *matrix_result;
+    matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
+    matrix_result->rows = m->rows;
+    matrix_result->cols = m->cols;
+    matrix_result->offset = 0;
+    matrix_result->step = 1;
+    matrix_result->value = enif_alloc(matrix_result->cols * matrix_result->rows * sizeof(double));
+
+    for (int i = 0; i < matrix_result->rows; ++i) {
+        for (int j = 0; j < matrix_result->cols; ++j) {
+            unsigned int index = inx(i, j, matrix_result->cols);
+            matrix_result->value[index] = scaler * m->value[index];
+        }
+    }
+
+    ERL_NIF_TERM result_term = enif_make_resource(env, matrix_result);
+    return make_deep_list(env, 1, &result_term);
+}
+
 static ErlNifFunc nif_funcs[] = {
     {"vsum", 2, vsum},
     {"vscale", 2, vscale},
     {"msum", 2, msum},
-//    {"mscale", 2, mscale},
+    {"mscale", 2, mscale},
     {"make_list", 1, make_list},
     {"make_deep_list", 1, make_deep_list},
     {"make_vector", 1, make_vector},

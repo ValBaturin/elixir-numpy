@@ -16,6 +16,10 @@ defmodule Numpy do
         "NIF library not loaded"
     end
 
+    def mscale(_, _) do
+        "NIF library not loaded"
+    end
+
     def make_list(_) do
         "NIF library not loaded"
     end
