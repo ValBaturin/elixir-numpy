@@ -12,11 +12,7 @@ defmodule Numpy do
         "NIF library not loaded"
     end
 
-    def vscale(_, _) do
-        "NIF library not loaded"
-    end
-
-    def mscale(_, _) do
+    def scale(_, _) do
         "NIF library not loaded"
     end
 

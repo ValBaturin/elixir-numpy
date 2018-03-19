@@ -238,7 +238,7 @@ ERL_NIF_TERM vscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
         vector_result->value[i] = scaler * v->value[i];
     }
     ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
-    return make_list(env, 1, &result_term);
+    return result_term;
 }
 
 ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -279,23 +279,24 @@ ERL_NIF_TERM mvscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
         return enif_make_badarg(env);
     }
 
-    struct matrix *matrix_result;
-    matrix_result = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
-    matrix_result->rows = m->rows;
-    matrix_result->cols = m->cols;
-    matrix_result->offset = 0;
-    matrix_result->step = 1;
-    matrix_result->type = MATRIX;
-    matrix_result->value = enif_alloc(matrix_result->cols * matrix_result->rows * sizeof(double));
-
-    for (int i = 0; i < matrix_result->rows; ++i) {
-        for (int j = 0; j < matrix_result->cols; ++j) {
-            unsigned int index = inx(i, j, matrix_result->cols);
-            matrix_result->value[index] = scaler * m->value[index];
-        }
+    unsigned int steps;
+    if (m->type == ROW) {
+        steps = m->cols;
+    } else if (m->type == COL) {
+        steps = m->rows;
+    } else if (m->type == DIAG) {
+        steps = min(m->rows, m->cols);
     }
+    struct vector *vector_result;
+    vector_result = enif_alloc_resource(vector_resource, sizeof(struct vector));
+    vector_result->size = steps;
+    vector_result->value = enif_alloc(steps * sizeof(double));
 
-    ERL_NIF_TERM result_term = enif_make_resource(env, matrix_result);
+    for (int i = 0; i < steps; ++i) {
+        int index = m->offset + i * m->step;
+        vector_result->value[i] = scaler * m->value[index];
+    }
+    ERL_NIF_TERM result_term = enif_make_resource(env, vector_result);
     return result_term;
 }
 
@@ -369,9 +370,8 @@ ERL_NIF_TERM get_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
 static ErlNifFunc nif_funcs[] = {
     {"vsum", 2, vsum},
-    {"vscale", 2, vscale},
     {"msum", 2, msum},
-    {"mscale", 2, mscale},
+    {"scale", 2, scale},
     {"make_list", 1, make_list},
     {"make_deep_list", 1, make_deep_list},
     {"make_vector", 1, make_vector},
