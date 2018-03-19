@@ -1,0 +1,4 @@
+rm Elixir.Numpy.Beam
+gcc-7 -undefined dynamic_lookup -dynamiclib numpy.c -o numpy.so -I /usr/local/Cellar/erlang/20.2.4/lib/erlang/usr/include
+elixirc numpy.ex
+elixir test.exs
