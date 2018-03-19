@@ -1,8 +1,21 @@
 #include "erl_nif.h"
 #include "stdio.h"
 
+#define MATRIX 0
+#define ROW 1
+#define COL 2
+#define DIAG 3
+
 unsigned int inx(unsigned int row, unsigned int col, unsigned int col_size) {
     return col_size * row + col;
+}
+
+unsigned int min(unsigned int first, unsigned int second) {
+    if (first < second) {
+        return first;
+    } else {
+        return second;
+    }
 }
 
 struct vector {
@@ -16,6 +29,7 @@ struct matrix {
     unsigned int cols;
     unsigned int step;
     unsigned int offset;
+    int type;
 };
 
 static void delete_vector(ErlNifEnv* env, void* arg) {
@@ -66,6 +80,7 @@ ERL_NIF_TERM make_matrix(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct matrix *m = enif_alloc_resource(matrix_resource, sizeof(struct matrix));
     m->step = 1;
     m->offset = 0;
+    m->type = MATRIX;
     enif_get_list_length(env, argv[0], &m->rows);
     ERL_NIF_TERM list = argv[0];
     ERL_NIF_TERM col, item;
@@ -86,7 +101,8 @@ ERL_NIF_TERM make_matrix(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     return t;
 }
 
-ERL_NIF_TERM make_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+
+ERL_NIF_TERM make_list_from_vector(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     struct vector *v;
     enif_get_resource(env, argv[0], vector_resource, (void **)&v);
     ERL_NIF_TERM *array;
@@ -94,7 +110,56 @@ ERL_NIF_TERM make_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     for (unsigned i = 0; i < v->size; ++i) {
         array[i] = enif_make_double(env, v->value[i]);
     }
-    return enif_make_list_from_array(env, array, v->size);
+    ERL_NIF_TERM result = enif_make_list_from_array(env, array, v->size);
+	enif_free(array);
+    return result;
+}
+
+ERL_NIF_TERM make_list_from_matrix_row_col_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    enif_get_resource(env, argv[0], matrix_resource, (void **)&m);
+    ERL_NIF_TERM *array;
+    ERL_NIF_TERM result;
+    if (m->type == ROW) {
+        array = enif_alloc(m->cols * sizeof(ERL_NIF_TERM));
+        for (int i = 0; i < m->cols; ++i) {
+            int index = m->offset + i;
+            array[i] = enif_make_double(env, m->value[index]);
+        }
+    	result = enif_make_list_from_array(env, array, m->cols);
+    } else if (m->type == COL) {
+        array = enif_alloc(m->rows * sizeof(ERL_NIF_TERM));
+        for (int i = 0; i < m->rows; ++i) {
+            int index = m->offset + i * m->step;
+            array[i] = enif_make_double(env, m->value[index]);
+        }
+    	result = enif_make_list_from_array(env, array, m->rows);
+    } else if (m->type == DIAG) {
+        unsigned int steps = min(m->rows, m->cols);
+        array = enif_alloc(steps * sizeof(ERL_NIF_TERM));
+        for (int i = 0; i < steps; ++i) {
+            int index = m->offset + i * m->step;
+            array[i] = enif_make_double(env, m->value[index]);
+        }
+    	result = enif_make_list_from_array(env, array, steps);
+    } else {
+        return enif_make_badarg(env);
+	}
+	enif_free(array);
+    return result;
+}
+
+
+ERL_NIF_TERM make_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct vector *v;
+    struct matrix *m;
+    if (enif_get_resource(env, argv[0], vector_resource, (void **)&v)) {
+        return make_list_from_vector(env, argc, argv);
+    } else if (enif_get_resource(env, argv[0], matrix_resource, (void **)&m)) {
+        return make_list_from_matrix_row_col_diag(env, argc, argv);
+    } else {
+        return enif_make_badarg(env);
+    }
 }
 
 ERL_NIF_TERM make_deep_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -161,6 +226,7 @@ ERL_NIF_TERM msum(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     matrix_result->cols = m_0->cols;
     matrix_result->offset = 0;
     matrix_result->step = 1;
+    matrix_result->type = MATRIX;
     matrix_result->value = enif_alloc(matrix_result->cols * matrix_result->rows * sizeof(double));
 
     for (int i = 0; i < matrix_result->rows; ++i) {
@@ -217,6 +283,7 @@ ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     matrix_result->cols = m->cols;
     matrix_result->offset = 0;
     matrix_result->step = 1;
+    matrix_result->type = MATRIX;
     matrix_result->value = enif_alloc(matrix_result->cols * matrix_result->rows * sizeof(double));
 
     for (int i = 0; i < matrix_result->rows; ++i) {
@@ -230,6 +297,60 @@ ERL_NIF_TERM mscale(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     return make_deep_list(env, 1, &result_term);
 }
 
+
+ERL_NIF_TERM get_col(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    enif_get_resource(env, argv[1], matrix_resource, (void **)&m);
+
+    int col;
+    if (!enif_get_int(env, argv[0], &col)) {
+        return enif_make_badarg(env);
+    }
+    m->type = COL;
+    m->offset = col;
+    m->step = m->cols;
+    return argv[1];
+}
+
+
+ERL_NIF_TERM get_row(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    ERL_NIF_TERM term = make_matrix(env, 1, &argv[1]);
+    enif_get_resource(env, term, matrix_resource, (void **)&m);
+
+    int row;
+    if (!enif_get_int(env, argv[0], &row)) {
+        return enif_make_badarg(env);
+    }
+    m->type = ROW;
+    m->offset = row;
+    m->step = m->cols;
+    return term;
+}
+
+
+ERL_NIF_TERM get_diag(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    struct matrix *m;
+    ERL_NIF_TERM term = make_matrix(env, 1, &argv[1]);
+    enif_get_resource(env, term, matrix_resource, (void **)&m);
+
+    int diag;
+    if (!enif_get_int(env, argv[0], &diag)) {
+        return enif_make_badarg(env);
+    }
+    m->type = DIAG;
+    if (diag == 1) {
+        m->step = m->cols + 1;
+    } else if (diag == -1) {
+        m->offset = m->cols - 1;
+        m->step = m->cols - 1;
+    } else {
+        return enif_make_badarg(env);
+    }
+    return term;
+}
+
+
 static ErlNifFunc nif_funcs[] = {
     {"vsum", 2, vsum},
     {"vscale", 2, vscale},
@@ -238,7 +359,10 @@ static ErlNifFunc nif_funcs[] = {
     {"make_list", 1, make_list},
     {"make_deep_list", 1, make_deep_list},
     {"make_vector", 1, make_vector},
-    {"make_matrix", 1, make_matrix}
+    {"make_matrix", 1, make_matrix},
+    {"get_col", 2, get_col},
+    {"get_row", 2, get_row},
+    {"get_diag", 2, get_diag}
 };
 
 ERL_NIF_INIT(Elixir.Numpy, nif_funcs, &on_load, NULL, NULL, NULL);

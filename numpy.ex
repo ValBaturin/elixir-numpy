@@ -35,4 +35,17 @@ defmodule Numpy do
     def make_matrix(_) do
         "NIF library not loaded"
     end
+
+    def get_col(_, _) do
+        "NIF library not loaded"
+    end
+
+    def get_row(_, _) do
+        "NIF library not loaded"
+    end
+
+    def get_diag(_, _) do
+        "NIF library not loaded"
+    end
+
 end
